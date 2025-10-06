@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Sketchbook Portfolio</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+</head>
+
+<body>
+  <div class="book-container">
+    <div class="flipbook" id="flipbook">
+      <div class="page"><img src="images/page1.jpg" alt="Sketch 1"></div>
+      <div class="page"><img src="images/page2.jpg" alt="Sketch 2"></div>
+      <div class="page"><img src="images/page3.jpg" alt="Sketch 3"></div>
+      <div class="page"><img src="images/page4.jpg" alt="Sketch 4"></div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const pageFlip = new St.PageFlip(document.getElementById("flipbook"), {
+        width: 600, // page width
+        height: 800, // page height
+        size: "stretch",
+        minWidth: 315,
+        maxWidth: 1000,
+        maxHeight: 1350,
+        showCover: true,
+        mobileScrollSupport: false,
+      });
+      pageFlip.loadFromHTML(document.querySelectorAll(".page"));
+    });
+  </script>
+</body>
+</html>
