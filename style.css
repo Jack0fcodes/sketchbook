@@ -1,16 +1,42 @@
 body {
   margin: 0;
-  background: #f4f1ec;
+  background: #d6cec2 url("https://i.imgur.com/8b1E3yZ.jpg") repeat;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  height: 100vh;
-  font-family: "Helvetica Neue", sans-serif;
+  font-family: "Georgia", serif;
+  overflow-x: hidden;
 }
 
+/* Whole sketchbook area */
+.sketchbook-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+/* Faux spine */
+.book-spine {
+  width: 30px;
+  height: 860px;
+  background: repeating-linear-gradient(
+    90deg,
+    #3a2f26,
+    #3a2f26 5px,
+    #2a221a 5px,
+    #2a221a 10px
+  );
+  border-radius: 3px;
+  box-shadow: inset -3px 0 5px rgba(0, 0, 0, 0.4);
+  margin-right: 8px;
+}
+
+/* Flipbook container */
 .book-container {
-  box-shadow: 0 5px 30px rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
+  background: #f7f5f0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
   overflow: hidden;
 }
 
@@ -22,14 +48,66 @@ body {
 .page {
   width: 100%;
   height: 100%;
-  background-color: white;
+  background: url("https://i.imgur.com/N9m9KJe.jpg") center/cover no-repeat;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 20px;
 }
 
 .page img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  border: 1px solid #c1b9ac;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+/* Front and back cover */
+.cover,
+.back-cover {
+  background: linear-gradient(135deg, #4d3b2f, #3c2e25);
+  color: #f2e6d9;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Courier New", monospace;
+}
+
+.cover-inner {
+  padding: 40px;
+}
+
+.cover h1 {
+  font-size: 2.2rem;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+.cover p,
+.back-cover p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+/* Buttons */
+.controls {
+  margin: 25px 0 60px;
+}
+
+button {
+  background-color: #3e3e3e;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  margin: 0 10px;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.25s;
+}
+
+button:hover {
+  background-color: #635c54;
 }
