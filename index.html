@@ -5,63 +5,87 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>My Sketchbook Portfolio</title>
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.min.js"></script>
+  <script src="js/stpageflip.min.js"></script>
 </head>
-
 <body>
   <div class="sketchbook-wrapper">
     <div class="book-spine"></div>
 
-    <div class="book-container">
-      <div class="flipbook" id="flipbook">
-        <!-- Cover -->
+    <div class="book-container" id="book">
+      <div class="flipbook">
+        <!-- Front Cover -->
         <div class="page cover">
           <div class="cover-inner">
             <h1>Emerald’s Sketchbook</h1>
-            <p>Flip through my art ✦</p>
+            <p>Flip through my works and ideas ✨</p>
           </div>
         </div>
 
-        <!-- Inside pages -->
-        <div class="page"><img src="images/page1.jpg" alt="Sketch 1"></div>
-        <div class="page"><img src="images/page2.png" alt="Sketch 2"></div>
-        <div class="page"><img src="images/page3.jpg" alt="Sketch 3"></div>
-        <div class="page"><img src="images/page4.jpg" alt="Sketch 4"></div>
+        <!-- Page 1 -->
+        <div class="page">
+          <img src="https://images.unsplash.com/photo-1503602642458-232111445657?auto=format&fit=crop&w=800&q=80" alt="Sketch 1" />
+        </div>
 
-        <!-- Back cover -->
+        <!-- Page 2 -->
+        <div class="page">
+          <img src="https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?auto=format&fit=crop&w=800&q=80" alt="Sketch 2" />
+        </div>
+
+        <!-- Page 3 -->
+        <div class="page">
+          <img src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=800&q=80" alt="Sketch 3" />
+        </div>
+
+        <!-- Back Cover -->
         <div class="page back-cover">
-          <div class="cover-inner">
-            <p>Thanks for flipping through ♡</p>
-          </div>
+          <p>Thanks for flipping through 🌿</p>
         </div>
       </div>
     </div>
   </div>
 
   <div class="controls">
-    <button id="prev">← Prev</button>
-    <button id="next">Next →</button>
+    <button id="prev">◀ Prev</button>
+    <button id="next">Next ▶</button>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const pageFlip = new St.PageFlip(document.getElementById("flipbook"), {
-        width: 650,
-        height: 850,
-        size: "stretch",
-        minWidth: 315,
-        maxWidth: 1000,
-        maxHeight: 1350,
-        showCover: true,
-        useMouseEvents: true,
-        flippingTime: 1200,
-        mobileScrollSupport: false,
+      const book = new St.PageFlip(
+        document.getElementById("book"),
+        {
+          width: 500,
+          height: 700,
+          size: "stretch",
+          minWidth: 315,
+          maxWidth: 1000,
+          maxHeight: 1350,
+          showCover: true,
+          mobileScrollSupport: false,
+          usePortrait: true,
+          startPage: 0,
+          drawShadow: true,
+          flippingTime: 1200,
+          useMouseEvents: true,
+          startZIndex: 5,
+          maxShadowOpacity: 0.6,
+        }
+      );
+
+      const flipbook = document.querySelector(".flipbook");
+      book.loadFromHTML(flipbook);
+
+      // Add curl animation on page flip
+      const pages = document.querySelectorAll(".page");
+      book.on("flip", (e) => {
+        pages.forEach((p) => p.classList.remove("flipping"));
+        const next = pages[e.data];
+        if (next) next.classList.add("flipping");
+        setTimeout(() => next && next.classList.remove("flipping"), 700);
       });
 
-      pageFlip.loadFromHTML(document.querySelectorAll(".page"));
-
-      document.getElementById("prev").addEventListener("click", () => pageFlip.flipPrev());
-      document.getElementById("next").addEventListener("click", () => pageFlip.flipNext());
+      document.getElementById("prev").addEventListener("click", () => book.flipPrev());
+      document.getElementById("next").addEventListener("click", () => book.flipNext());
     });
   </script>
 </body>
