@@ -7,84 +7,285 @@
   <style>
     body {
       margin: 0;
-      background: #dcd3c3; /* ivory paper feel */
+      background: #dcd3c3;
       overflow: hidden;
       font-family: 'Georgia', serif;
     }
     canvas {
       display: block;
+      touch-action: none;
+    }
+    #instructions {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.9);
+      padding: 15px 25px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #instructions h3 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    #instructions p {
+      margin: 4px 0;
+      font-size: 13px;
+      color: #666;
     }
   </style>
 </head>
 <body>
+  <div id="instructions">
+    <h3>Interactive Sketchbook</h3>
+    <p>Click to flip forward • Right-click to flip back</p>
+    <p>Drag to rotate • Scroll to zoom</p>
+  </div>
   <canvas id="scene"></canvas>
-
-  <script src="https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.162.0/examples/js/loaders/GLTFLoader.js"></script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
-    let scene, camera, renderer, pages = [], currentPage = 0;
+    let scene, camera, renderer, book, pages = [], currentPage = 0;
+    let isDragging = false, prevMouse = { x: 0, y: 0 };
+    let bookRotation = { x: -0.3, y: 0 };
+    let isAnimating = false;
 
     init();
-    loadBook();
+    createBook();
     animate();
 
     function init() {
       scene = new THREE.Scene();
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true });
+      renderer = new THREE.WebGLRenderer({ 
+        canvas: document.getElementById('scene'), 
+        antialias: true 
+      });
       renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setClearColor(0xdcd3c3); // ivory tone
-      window.addEventListener('resize', onWindowResize);
+      renderer.setClearColor(0xdcd3c3);
+      renderer.shadowMap.enabled = true;
 
-      const light = new THREE.DirectionalLight(0xffffff, 1.2);
-      light.position.set(3, 5, 3);
+      const light = new THREE.DirectionalLight(0xfff5e6, 1);
+      light.position.set(4, 6, 3);
+      light.castShadow = true;
       scene.add(light);
 
-      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+      const ambient = new THREE.AmbientLight(0xfff8f0, 0.7);
       scene.add(ambient);
 
-      camera.position.set(0, 1, 3);
+      const fillLight = new THREE.DirectionalLight(0xe6f3ff, 0.3);
+      fillLight.position.set(-3, 2, -2);
+      scene.add(fillLight);
+
+      camera.position.set(0, 2, 5);
+      camera.lookAt(0, 0, 0);
+
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('mousedown', onMouseDown);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('wheel', onWheel);
+      window.addEventListener('contextmenu', e => e.preventDefault());
     }
 
-    function loadBook() {
-      const loader = new THREE.GLTFLoader();
-      loader.load('models/sketchbook.glb', (gltf) => {
-        const book = gltf.scene;
-        scene.add(book);
-
-        // find pages (name them "Page1", "Page2", etc. in Nomad)
-        pages = book.children.filter(obj => obj.name.includes("Page"));
-
-        // apply textures
-        const texLoader = new THREE.TextureLoader();
-        pages.forEach((page, i) => {
-          const texture = texLoader.load(`images/page${i + 1}.jpg`);
-          page.material = new THREE.MeshStandardMaterial({ map: texture });
-        });
-
-        // position book slightly tilted
-        book.rotation.x = -0.2;
-        book.position.y = -0.5;
+    function createBook() {
+      book = new THREE.Group();
+      
+      // Book cover (back)
+      const coverGeo = new THREE.BoxGeometry(2, 0.05, 3);
+      const coverMat = new THREE.MeshStandardMaterial({ 
+        color: 0x8b4513,
+        roughness: 0.8 
       });
+      const backCover = new THREE.Mesh(coverGeo, coverMat);
+      backCover.position.y = 0;
+      backCover.castShadow = true;
+      book.add(backCover);
+
+      // Create pages
+      const numPages = 8;
+      const pageThickness = 0.01;
+      
+      for (let i = 0; i < numPages; i++) {
+        const pageGroup = new THREE.Group();
+        
+        // Create double-sided page
+        const pageGeo = new THREE.PlaneGeometry(2, 3);
+        
+        // Front side (right page)
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 768;
+        const ctx = canvas.getContext('2d');
+        
+        // Paper texture
+        ctx.fillStyle = '#faf8f3';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Add paper grain
+        for (let j = 0; j < 5000; j++) {
+          ctx.fillStyle = `rgba(200, 190, 170, ${Math.random() * 0.1})`;
+          ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, 1);
+        }
+        
+        // Content
+        ctx.fillStyle = '#2c2416';
+        ctx.font = 'bold 48px Georgia';
+        ctx.fillText(`Page ${i * 2 + 1}`, 40, 80);
+        
+        // Sketch lines
+        ctx.strokeStyle = '#3a3226';
+        ctx.lineWidth = 2;
+        for (let j = 0; j < 5; j++) {
+          ctx.beginPath();
+          const y = 150 + j * 80;
+          ctx.moveTo(40, y);
+          ctx.lineTo(canvas.width - 40, y);
+          ctx.stroke();
+        }
+        
+        // Simple sketch
+        ctx.strokeStyle = '#4a4236';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(256, 500, 80, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        const texture = new THREE.CanvasTexture(canvas);
+        const frontMat = new THREE.MeshStandardMaterial({ 
+          map: texture,
+          roughness: 0.9,
+          metalness: 0
+        });
+        
+        // Back side (left page)
+        const canvas2 = document.createElement('canvas');
+        canvas2.width = 512;
+        canvas2.height = 768;
+        const ctx2 = canvas2.getContext('2d');
+        
+        ctx2.fillStyle = '#faf8f3';
+        ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
+        
+        for (let j = 0; j < 5000; j++) {
+          ctx2.fillStyle = `rgba(200, 190, 170, ${Math.random() * 0.1})`;
+          ctx2.fillRect(Math.random() * canvas2.width, Math.random() * canvas2.height, 1, 1);
+        }
+        
+        ctx2.fillStyle = '#2c2416';
+        ctx2.font = 'bold 48px Georgia';
+        ctx2.fillText(`Page ${i * 2 + 2}`, 40, 80);
+        
+        const texture2 = new THREE.CanvasTexture(canvas2);
+        const backMat = new THREE.MeshStandardMaterial({ 
+          map: texture2,
+          roughness: 0.9,
+          metalness: 0
+        });
+        
+        const page = new THREE.Mesh(pageGeo, [backMat, frontMat]);
+        page.position.y = pageThickness * (i + 1);
+        
+        pageGroup.add(page);
+        pageGroup.position.x = -1;
+        pageGroup.userData.originalY = page.position.y;
+        pageGroup.userData.flipped = false;
+        pageGroup.userData.targetRotation = 0;
+        pageGroup.userData.currentRotation = 0;
+        
+        pages.push(pageGroup);
+        book.add(pageGroup);
+      }
+
+      // Front cover
+      const frontCover = new THREE.Mesh(coverGeo, coverMat);
+      frontCover.position.y = pageThickness * (numPages + 1);
+      frontCover.castShadow = true;
+      book.add(frontCover);
+
+      book.rotation.x = bookRotation.x;
+      book.rotation.y = bookRotation.y;
+      scene.add(book);
     }
 
-    function flipPage() {
-      if (currentPage < pages.length) {
+    function flipPage(forward = true) {
+      if (isAnimating) return;
+      
+      if (forward && currentPage < pages.length) {
+        isAnimating = true;
         const page = pages[currentPage];
-        let angle = 0;
-        const flip = setInterval(() => {
-          angle += 6;
-          page.rotation.y = THREE.MathUtils.degToRad(angle);
-          if (angle >= 180) clearInterval(flip);
-        }, 16); // ~60fps
+        page.userData.targetRotation = -Math.PI;
+        page.userData.flipped = true;
         currentPage++;
+      } else if (!forward && currentPage > 0) {
+        isAnimating = true;
+        currentPage--;
+        const page = pages[currentPage];
+        page.userData.targetRotation = 0;
+        page.userData.flipped = false;
       }
     }
 
     function animate() {
       requestAnimationFrame(animate);
+      
+      let allDone = true;
+      pages.forEach(page => {
+        const diff = page.userData.targetRotation - page.userData.currentRotation;
+        if (Math.abs(diff) > 0.01) {
+          page.userData.currentRotation += diff * 0.15;
+          page.rotation.y = page.userData.currentRotation;
+          allDone = false;
+        } else {
+          page.userData.currentRotation = page.userData.targetRotation;
+          page.rotation.y = page.userData.currentRotation;
+        }
+      });
+      
+      if (allDone) isAnimating = false;
+      
+      book.rotation.x = bookRotation.x;
+      book.rotation.y = bookRotation.y;
+      
       renderer.render(scene, camera);
+    }
+
+    function onMouseDown(e) {
+      if (e.button === 0) {
+        if (!isDragging) flipPage(true);
+      } else if (e.button === 2) {
+        flipPage(false);
+      }
+      isDragging = true;
+      prevMouse = { x: e.clientX, y: e.clientY };
+    }
+
+    function onMouseMove(e) {
+      if (!isDragging) return;
+      
+      const deltaX = e.clientX - prevMouse.x;
+      const deltaY = e.clientY - prevMouse.y;
+      
+      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+        bookRotation.y += deltaX * 0.01;
+        bookRotation.x += deltaY * 0.01;
+        bookRotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, bookRotation.x));
+      }
+      
+      prevMouse = { x: e.clientX, y: e.clientY };
+    }
+
+    function onMouseUp() {
+      isDragging = false;
+    }
+
+    function onWheel(e) {
+      camera.position.z += e.deltaY * 0.01;
+      camera.position.z = Math.max(3, Math.min(10, camera.position.z));
     }
 
     function onWindowResize() {
@@ -92,16 +293,6 @@
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
-
-    // click flip
-    window.addEventListener('click', flipPage);
-
-    // swipe flip
-    let startX = 0;
-    window.addEventListener('touchstart', e => startX = e.touches[0].clientX);
-    window.addEventListener('touchend', e => {
-      if (e.changedTouches[0].clientX - startX < -50) flipPage();
-    });
   </script>
 </body>
 </html>
