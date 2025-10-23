@@ -1,57 +1,107 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sketchbook Portfolio — Flipbook</title>
-  <link rel="stylesheet" href="css/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Sketchbook Flip</title>
+  <style>
+    body {
+      margin: 0;
+      background: #dcd3c3; /* ivory paper feel */
+      overflow: hidden;
+      font-family: 'Georgia', serif;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <main class="page-wrap">
-    <div class="book-shell">
-      <div id="book" class="book" aria-label="Sketchbook portfolio">
-        <!-- Each .leaf is a sheet with two pages: front and back -->
-        <!-- Add or remove .leaf blocks to change page count -->
-        <!-- Replace the image src with your own images -->
-        <div class="leaf">
-          <figure class="page front">
-            <img src="https://picsum.photos/seed/1/1200/900" alt="Artwork 1">
-          </figure>
-          <figure class="page back">
-            <img src="https://picsum.photos/seed/2/1200/900" alt="Artwork 2">
-          </figure>
-        </div>
+  <canvas id="scene"></canvas>
 
-        <div class="leaf">
-          <figure class="page front">
-            <img src="https://picsum.photos/seed/3/1200/900" alt="Artwork 3">
-          </figure>
-          <figure class="page back">
-            <img src="https://picsum.photos/seed/4/1200/900" alt="Artwork 4">
-          </figure>
-        </div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.162.0/examples/js/loaders/GLTFLoader.js"></script>
 
-        <div class="leaf">
-          <figure class="page front">
-            <img src="https://picsum.photos/seed/5/1200/900" alt="Artwork 5">
-          </figure>
-          <figure class="page back">
-            <img src="https://picsum.photos/seed/6/1200/900" alt="Artwork 6">
-          </figure>
-        </div>
+  <script>
+    let scene, camera, renderer, pages = [], currentPage = 0;
 
-        <!-- add more .leaf blocks as needed -->
-      </div>
+    init();
+    loadBook();
+    animate();
 
-      <!-- Controls -->
-      <div class="controls">
-        <button id="prevBtn" aria-label="Previous page">◀</button>
-        <div class="page-indicator" id="indicator">1 / 6</div>
-        <button id="nextBtn" aria-label="Next page">▶</button>
-      </div>
-    </div>
-  </main>
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('scene'), antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0xdcd3c3); // ivory tone
+      window.addEventListener('resize', onWindowResize);
 
-  <script src="js/main.js"></script>
+      const light = new THREE.DirectionalLight(0xffffff, 1.2);
+      light.position.set(3, 5, 3);
+      scene.add(light);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambient);
+
+      camera.position.set(0, 1, 3);
+    }
+
+    function loadBook() {
+      const loader = new THREE.GLTFLoader();
+      loader.load('models/sketchbook.glb', (gltf) => {
+        const book = gltf.scene;
+        scene.add(book);
+
+        // find pages (name them "Page1", "Page2", etc. in Nomad)
+        pages = book.children.filter(obj => obj.name.includes("Page"));
+
+        // apply textures
+        const texLoader = new THREE.TextureLoader();
+        pages.forEach((page, i) => {
+          const texture = texLoader.load(`images/page${i + 1}.jpg`);
+          page.material = new THREE.MeshStandardMaterial({ map: texture });
+        });
+
+        // position book slightly tilted
+        book.rotation.x = -0.2;
+        book.position.y = -0.5;
+      });
+    }
+
+    function flipPage() {
+      if (currentPage < pages.length) {
+        const page = pages[currentPage];
+        let angle = 0;
+        const flip = setInterval(() => {
+          angle += 6;
+          page.rotation.y = THREE.MathUtils.degToRad(angle);
+          if (angle >= 180) clearInterval(flip);
+        }, 16); // ~60fps
+        currentPage++;
+      }
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // click flip
+    window.addEventListener('click', flipPage);
+
+    // swipe flip
+    let startX = 0;
+    window.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+    window.addEventListener('touchend', e => {
+      if (e.changedTouches[0].clientX - startX < -50) flipPage();
+    });
+  </script>
 </body>
 </html>
