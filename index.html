@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Sketchbook Flip</title>
+  <title>3D Sketchbook Flip - Custom Model</title>
   <style>
     body {
       margin: 0;
@@ -25,7 +25,6 @@
       border-radius: 8px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       text-align: center;
-      pointer-events: none;
       z-index: 10;
     }
     #instructions h3 {
@@ -38,6 +37,67 @@
       font-size: 13px;
       color: #666;
     }
+    #modelInput {
+      position: absolute;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10;
+      max-width: 400px;
+    }
+    #modelInput input {
+      width: 100%;
+      padding: 8px;
+      margin: 10px 0;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    #modelInput button {
+      width: 100%;
+      padding: 10px;
+      background: #8b4513;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    #modelInput button:hover {
+      background: #6d3410;
+    }
+    #modelInput label {
+      display: block;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #666;
+    }
+    .file-input {
+      display: none;
+    }
+    .file-button {
+      background: #4a7c59 !important;
+    }
+    .file-button:hover {
+      background: #3a5f45 !important;
+    }
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 30px;
+      border-radius: 8px;
+      display: none;
+      z-index: 20;
+    }
   </style>
 </head>
 <body>
@@ -46,16 +106,37 @@
     <p>Click to flip forward • Right-click to flip back</p>
     <p>Drag to rotate • Scroll to zoom</p>
   </div>
+
+  <div id="modelInput">
+    <h3 style="margin-top: 0;">Load Your Model</h3>
+    <label>Upload GLB/GLTF file:</label>
+    <input type="file" id="fileInput" class="file-input" accept=".glb,.gltf" />
+    <button class="file-button" onclick="document.getElementById('fileInput').click()">Choose File</button>
+    <p style="margin: 15px 0; text-align: center;">— OR —</p>
+    <label>Enter model URL:</label>
+    <input type="text" id="urlInput" placeholder="https://example.com/sketchbook.glb" />
+    <button onclick="loadFromURL()">Load from URL</button>
+    <p style="margin-top: 15px; font-size: 12px; color: #999;">
+      Tip: Name your pages "Page1", "Page2", etc. in Nomad Sculpt
+    </p>
+  </div>
+
+  <div id="loading">
+    <p>Loading model...</p>
+  </div>
+
   <canvas id="scene"></canvas>
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script>
     let scene, camera, renderer, book, pages = [], currentPage = 0;
     let isDragging = false, prevMouse = { x: 0, y: 0 };
     let bookRotation = { x: -0.3, y: 0 };
     let isAnimating = false;
+    let GLTFLoader;
 
     init();
-    createBook();
+    loadGLTFLoader();
     animate();
 
     function init() {
@@ -90,142 +171,132 @@
       window.addEventListener('mouseup', onMouseUp);
       window.addEventListener('wheel', onWheel);
       window.addEventListener('contextmenu', e => e.preventDefault());
+      
+      document.getElementById('fileInput').addEventListener('change', handleFileSelect);
     }
 
-    function createBook() {
-      book = new THREE.Group();
-      
-      // Book cover (back)
-      const coverGeo = new THREE.BoxGeometry(2, 0.05, 3);
-      const coverMat = new THREE.MeshStandardMaterial({ 
-        color: 0x8b4513,
-        roughness: 0.8 
-      });
-      const backCover = new THREE.Mesh(coverGeo, coverMat);
-      backCover.position.y = 0;
-      backCover.castShadow = true;
-      book.add(backCover);
+    function loadGLTFLoader() {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+      script.onload = () => {
+        GLTFLoader = THREE.GLTFLoader;
+      };
+      document.head.appendChild(script);
+    }
 
-      // Create pages
-      const numPages = 8;
-      const pageThickness = 0.01;
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
       
-      for (let i = 0; i < numPages; i++) {
-        const pageGroup = new THREE.Group();
-        
-        // Create double-sided page
-        const pageGeo = new THREE.PlaneGeometry(2, 3);
-        
-        // Front side (right page)
-        const canvas = document.createElement('canvas');
-        canvas.width = 512;
-        canvas.height = 768;
-        const ctx = canvas.getContext('2d');
-        
-        // Paper texture
-        ctx.fillStyle = '#faf8f3';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Add paper grain
-        for (let j = 0; j < 5000; j++) {
-          ctx.fillStyle = `rgba(200, 190, 170, ${Math.random() * 0.1})`;
-          ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 1, 1);
-        }
-        
-        // Content
-        ctx.fillStyle = '#2c2416';
-        ctx.font = 'bold 48px Georgia';
-        ctx.fillText(`Page ${i * 2 + 1}`, 40, 80);
-        
-        // Sketch lines
-        ctx.strokeStyle = '#3a3226';
-        ctx.lineWidth = 2;
-        for (let j = 0; j < 5; j++) {
-          ctx.beginPath();
-          const y = 150 + j * 80;
-          ctx.moveTo(40, y);
-          ctx.lineTo(canvas.width - 40, y);
-          ctx.stroke();
-        }
-        
-        // Simple sketch
-        ctx.strokeStyle = '#4a4236';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(256, 500, 80, 0, Math.PI * 2);
-        ctx.stroke();
-        
-        const texture = new THREE.CanvasTexture(canvas);
-        const frontMat = new THREE.MeshStandardMaterial({ 
-          map: texture,
-          roughness: 0.9,
-          metalness: 0
-        });
-        
-        // Back side (left page)
-        const canvas2 = document.createElement('canvas');
-        canvas2.width = 512;
-        canvas2.height = 768;
-        const ctx2 = canvas2.getContext('2d');
-        
-        ctx2.fillStyle = '#faf8f3';
-        ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
-        
-        for (let j = 0; j < 5000; j++) {
-          ctx2.fillStyle = `rgba(200, 190, 170, ${Math.random() * 0.1})`;
-          ctx2.fillRect(Math.random() * canvas2.width, Math.random() * canvas2.height, 1, 1);
-        }
-        
-        ctx2.fillStyle = '#2c2416';
-        ctx2.font = 'bold 48px Georgia';
-        ctx2.fillText(`Page ${i * 2 + 2}`, 40, 80);
-        
-        const texture2 = new THREE.CanvasTexture(canvas2);
-        const backMat = new THREE.MeshStandardMaterial({ 
-          map: texture2,
-          roughness: 0.9,
-          metalness: 0
-        });
-        
-        const page = new THREE.Mesh(pageGeo, [backMat, frontMat]);
-        page.position.y = pageThickness * (i + 1);
-        
-        pageGroup.add(page);
-        pageGroup.position.x = -1;
-        pageGroup.userData.originalY = page.position.y;
-        pageGroup.userData.flipped = false;
-        pageGroup.userData.targetRotation = 0;
-        pageGroup.userData.currentRotation = 0;
-        
-        pages.push(pageGroup);
-        book.add(pageGroup);
+      document.getElementById('loading').style.display = 'block';
+      const url = URL.createObjectURL(file);
+      loadModel(url);
+    }
+
+    function loadFromURL() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) {
+        alert('Please enter a valid URL');
+        return;
+      }
+      document.getElementById('loading').style.display = 'block';
+      loadModel(url);
+    }
+
+    function loadModel(url) {
+      if (!GLTFLoader) {
+        setTimeout(() => loadModel(url), 100);
+        return;
       }
 
-      // Front cover
-      const frontCover = new THREE.Mesh(coverGeo, coverMat);
-      frontCover.position.y = pageThickness * (numPages + 1);
-      frontCover.castShadow = true;
-      book.add(frontCover);
-
-      book.rotation.x = bookRotation.x;
-      book.rotation.y = bookRotation.y;
-      scene.add(book);
+      const loader = new GLTFLoader();
+      loader.load(
+        url,
+        (gltf) => {
+          document.getElementById('modelInput').style.display = 'none';
+          document.getElementById('loading').style.display = 'none';
+          
+          if (book) {
+            scene.remove(book);
+          }
+          
+          book = gltf.scene;
+          scene.add(book);
+          
+          // Find pages - look for objects with "Page" or "page" in name
+          pages = [];
+          book.traverse((child) => {
+            if (child.isMesh && child.name.toLowerCase().includes('page')) {
+              const pageGroup = new THREE.Group();
+              pageGroup.add(child.clone());
+              pageGroup.position.copy(child.position);
+              pageGroup.rotation.copy(child.rotation);
+              
+              pageGroup.userData.flipped = false;
+              pageGroup.userData.targetRotation = 0;
+              pageGroup.userData.currentRotation = 0;
+              pageGroup.userData.originalParent = child.parent;
+              
+              pages.push(pageGroup);
+              
+              child.visible = false;
+            }
+          });
+          
+          // Sort pages by name
+          pages.sort((a, b) => {
+            const numA = parseInt(a.children[0].name.match(/\d+/) || 0);
+            const numB = parseInt(b.children[0].name.match(/\d+/) || 0);
+            return numA - numB;
+          });
+          
+          // Add sorted pages to scene
+          pages.forEach(pageGroup => {
+            book.add(pageGroup);
+          });
+          
+          // Center and scale the model
+          const box = new THREE.Box3().setFromObject(book);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+          
+          book.position.sub(center);
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scale = 3 / maxDim;
+          book.scale.setScalar(scale);
+          
+          book.rotation.x = bookRotation.x;
+          book.rotation.y = bookRotation.y;
+          
+          currentPage = 0;
+          
+          console.log(`Loaded ${pages.length} pages:`, pages.map(p => p.children[0].name));
+        },
+        (progress) => {
+          console.log(`Loading: ${(progress.loaded / progress.total * 100).toFixed(0)}%`);
+        },
+        (error) => {
+          document.getElementById('loading').style.display = 'none';
+          alert('Error loading model. Make sure the URL is correct and CORS is enabled.');
+          console.error('Load error:', error);
+        }
+      );
     }
 
     function flipPage(forward = true) {
-      if (isAnimating) return;
+      if (isAnimating || pages.length === 0) return;
       
       if (forward && currentPage < pages.length) {
         isAnimating = true;
         const page = pages[currentPage];
-        page.userData.targetRotation = -Math.PI;
+        page.userData.targetRotation = page.userData.currentRotation - Math.PI;
         page.userData.flipped = true;
         currentPage++;
       } else if (!forward && currentPage > 0) {
         isAnimating = true;
         currentPage--;
         const page = pages[currentPage];
-        page.userData.targetRotation = 0;
+        page.userData.targetRotation = page.userData.currentRotation + Math.PI;
         page.userData.flipped = false;
       }
     }
@@ -248,8 +319,10 @@
       
       if (allDone) isAnimating = false;
       
-      book.rotation.x = bookRotation.x;
-      book.rotation.y = bookRotation.y;
+      if (book) {
+        book.rotation.x = bookRotation.x;
+        book.rotation.y = bookRotation.y;
+      }
       
       renderer.render(scene, camera);
     }
@@ -285,7 +358,7 @@
 
     function onWheel(e) {
       camera.position.z += e.deltaY * 0.01;
-      camera.position.z = Math.max(3, Math.min(10, camera.position.z));
+      camera.position.z = Math.max(2, Math.min(15, camera.position.z));
     }
 
     function onWindowResize() {
